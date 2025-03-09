@@ -1,29 +1,30 @@
 
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import MainLayout from "../layouts/MainLayout";
 import Post from "../components/Post";
-import { feedPosts, users } from "../utils/dummyData";
+import { fetchPosts, fetchUsers } from "../services/api";
 import { toast } from "sonner";
 
 const Index = () => {
-  const [loading, setLoading] = useState(true);
-  const [posts, setPosts] = useState([]);
-
-  useEffect(() => {
-    // Simulate API loading
-    const loadPosts = async () => {
-      setLoading(true);
-      // Simulate network request
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setPosts(feedPosts);
-      setLoading(false);
+  const { data: posts, isLoading: postsLoading } = useQuery({
+    queryKey: ['posts'],
+    queryFn: async () => {
+      const response = await fetchPosts();
       toast.success("Feed updated", {
         description: "Latest posts have been loaded",
       });
-    };
+      return response.data;
+    },
+  });
 
-    loadPosts();
-  }, []);
+  const { data: users } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await fetchUsers();
+      return response.data;
+    },
+  });
 
   return (
     <MainLayout>
@@ -31,8 +32,8 @@ const Index = () => {
         {/* Stories section */}
         <div className="mb-6 overflow-x-auto scrollbar-hide">
           <div className="flex gap-4 pb-2">
-            {users.map((user) => (
-              <div key={user.id} className="flex flex-col items-center gap-1 w-20">
+            {users && users.map((user) => (
+              <div key={user._id} className="flex flex-col items-center gap-1 w-20">
                 <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-primary p-0.5 bg-white">
                   <img
                     src={user.avatar}
@@ -50,7 +51,7 @@ const Index = () => {
 
         {/* Posts feed */}
         <div className="space-y-6">
-          {loading ? (
+          {postsLoading ? (
             // Skeleton loading
             Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="animate-pulse">
@@ -64,7 +65,7 @@ const Index = () => {
               </div>
             ))
           ) : (
-            posts.map((post) => <Post key={post.id} {...post} />)
+            posts && posts.map((post) => <Post key={post._id} {...post} />)
           )}
         </div>
       </div>

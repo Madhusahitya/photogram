@@ -1,32 +1,33 @@
-
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Settings, Grid, Bookmark, TagIcon } from "lucide-react";
 import MainLayout from "../layouts/MainLayout";
 import Avatar from "../components/Avatar";
 import PostGrid from "../components/PostGrid";
-import { currentUser, profilePosts } from "../utils/dummyData";
+import { fetchCurrentUser, fetchUserPosts } from "../services/api";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
 const Profile = () => {
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [posts, setPosts] = useState([]);
+  const { data: user, isLoading: userLoading } = useQuery({
+    queryKey: ['currentUser'],
+    queryFn: async () => {
+      const response = await fetchCurrentUser();
+      return response.data;
+    }
+  });
 
-  useEffect(() => {
-    // Simulate API loading
-    const loadProfile = async () => {
-      setLoading(true);
-      // Simulate network request
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setUser(currentUser);
-      setPosts(profilePosts);
-      setLoading(false);
-    };
+  const { data: posts, isLoading: postsLoading } = useQuery({
+    queryKey: ['userPosts', user?._id],
+    queryFn: async () => {
+      if (!user?._id) return [];
+      const response = await fetchUserPosts(user._id);
+      return response.data;
+    },
+    enabled: !!user?._id
+  });
 
-    loadProfile();
-  }, []);
+  const loading = userLoading || postsLoading;
 
   if (loading) {
     return (
@@ -113,7 +114,7 @@ const Profile = () => {
           </TabsList>
           
           <TabsContent value="posts" className="animate-slide-up">
-            <PostGrid posts={posts} />
+            {posts && <PostGrid posts={posts} />}
           </TabsContent>
           
           <TabsContent value="saved">

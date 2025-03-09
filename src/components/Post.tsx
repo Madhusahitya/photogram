@@ -1,11 +1,13 @@
 
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from "lucide-react";
 import Avatar from "./Avatar";
+import { likePost } from "../services/api";
 
 interface PostProps {
-  id: string;
+  _id: string;
   user: {
     id: string;
     username: string;
@@ -16,13 +18,27 @@ interface PostProps {
   likes: number;
   comments: number;
   timestamp: string;
+  likedBy?: string[];
 }
 
-const Post = ({ id, user, image, caption, likes, comments, timestamp }: PostProps) => {
-  const [liked, setLiked] = useState(false);
-  const [saved, setSaved] = useState(false);
+const Post = ({ _id, user, image, caption, likes, comments, timestamp, likedBy = [] }: PostProps) => {
+  const queryClient = useQueryClient();
   const [imageLoaded, setImageLoaded] = useState(false);
+  
+  // In a real app, this would come from authentication
+  const currentUserId = "123";
+  const [liked, setLiked] = useState(likedBy.includes(currentUserId));
+  const [saved, setSaved] = useState(false);
   const [likeCount, setLikeCount] = useState(likes);
+
+  const likeMutation = useMutation({
+    mutationFn: () => likePost(_id, currentUserId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      // Update the post in the cache
+      queryClient.setQueryData(['post', _id], data.data);
+    }
+  });
 
   const handleLike = () => {
     if (liked) {
@@ -31,6 +47,9 @@ const Post = ({ id, user, image, caption, likes, comments, timestamp }: PostProp
       setLikeCount((prev) => prev + 1);
     }
     setLiked(!liked);
+    
+    // Call the API to update the like status
+    likeMutation.mutate();
   };
 
   const formattedDate = new Date(timestamp).toLocaleDateString("en-US", {
@@ -101,7 +120,7 @@ const Post = ({ id, user, image, caption, likes, comments, timestamp }: PostProp
 
         {comments > 0 && (
           <Link
-            to={`/post/${id}`}
+            to={`/post/${_id}`}
             className="text-muted-foreground text-sm block mb-2"
           >
             View all {comments} comments

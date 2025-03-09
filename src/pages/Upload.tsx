@@ -1,18 +1,32 @@
-
 import { useState, ChangeEvent, DragEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, Image as ImageIcon, X } from "lucide-react";
 import MainLayout from "../layouts/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { createPost } from "../services/api";
 
 const UploadPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [dragActive, setDragActive] = useState(false);
   const [image, setImage] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
-  const [loading, setLoading] = useState(false);
+
+  const createPostMutation = useMutation({
+    mutationFn: createPost,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['userPosts'] });
+      toast.success("Post created successfully!");
+      navigate("/");
+    },
+    onError: () => {
+      toast.error("Failed to create post");
+    }
+  });
 
   const handleDrag = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -69,14 +83,21 @@ const UploadPage = () => {
       return;
     }
 
-    setLoading(true);
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    toast.success("Post created successfully!");
-    setLoading(false);
-    navigate("/");
+    // In a real app, you would upload the image to a server first
+    // Then get the URL and save it with the post
+    // For simplicity, we'll just use the base64 image
+    createPostMutation.mutate({
+      user: {
+        id: "123", // This would come from authentication
+        username: "current_user",
+        avatar: "/placeholder.svg",
+      },
+      image,
+      caption,
+      likes: 0,
+      comments: 0,
+      timestamp: new Date().toISOString(),
+    });
   };
 
   return (
@@ -136,8 +157,8 @@ const UploadPage = () => {
               <Button variant="outline" onClick={() => setImage(null)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={loading}>
-                {loading ? (
+              <Button onClick={handleSubmit} disabled={createPostMutation.isPending}>
+                {createPostMutation.isPending ? (
                   <div className="flex items-center gap-2">
                     <div className="h-4 w-4 rounded-full border-2 border-t-transparent border-white animate-spin"></div>
                     <span>Posting...</span>
